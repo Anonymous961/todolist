@@ -1,70 +1,120 @@
 "use client"
-import React, { useState , useEffect} from "react";
-import {ethers} from 'ethers';
-import { provider, wallet, todoListContract } from "../../ethers";
-import { todoListAbi } from "./abi";
+import React, { useState, useEffect } from "react";
+import { todoListContract } from "../../ethers";
 import Header from "./Components/header";
 
+interface Task {
+  id: number;
+  content: string;
+  completed: boolean;
+}
+
 export default function Home() {
-  const contractAddress = '0x0A49Be76eA39Db32d9024115537E0cc5C1F31BB8'; // Replace with your contract address
-  const todoListContract = new ethers.Contract(contractAddress, todoListAbi.abi, wallet);
+  const [tasks, setTasks] = useState<Task[]>([]); 
+  const [task, setTask] = useState<string>("");
 
-  const [tasks,setTasks]=useState([
-    {id:0,content:"task1",completed:false},
-    {id:1,content:"task2",completed:false},
-    {id:2,content:"task3",completed:false}
-  ]);
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const taskCount = await todoListContract.taskCount();
+  
+        console.log(taskCount);
 
-  const [task,setTask]=useState("");
-
-  const addTask=(e:React.FormEvent<HTMLFormElement>)=>{
-    e.preventDefault();
-    let id=tasks.length;
-    setTasks([...tasks,{id:id,content:task,completed:false}]);
-    setTask("");
-    console.log(tasks);
-  }
-
-  const removeTask=(taskId:number)=>{
-    const newTasks=tasks.filter((task)=>task.id!==taskId);
-    setTasks(newTasks);
-    console.log(tasks);
-  }
-
-  const toggleComp=(taskId:number)=>{
-    const updatedTasks=tasks.map((task)=>{
-      if(task.id==taskId){
-        return {...task,completed:!task.completed}
+    
+        const taskList = [];
+        for (let id = 1; id <= taskCount; id++) {
+          const [taskId, content, completed] = await todoListContract.getTask(id);
+          if(content==""){
+            continue;
+          }
+          taskList.push({ id: taskId, content, completed });
+        }
+    
+        setTasks(taskList);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
       }
-      return task;
-    })
-    setTasks(updatedTasks);
-  }
+    };
+    fetchTasks();
+  }, [task.length]);
+
+  const addTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      await todoListContract.createTask(task);
+
+      setTask("");
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
+  };
+
+  const removeTask = async (taskId: number) => {
+    try {
+      await todoListContract.deleteTask(taskId);
+
+      const updatedTasks = tasks.filter((task) => task.id !== taskId);
+      setTasks(updatedTasks);
+    } catch (error) {
+      console.error("Error removing task:", error);
+    }
+  };
+
+  const toggleComp = async (taskId: number) => {
+    try{
+      await todoListContract.updateTask(taskId);
+
+      const updatedTask= tasks.map((task)=>{
+        if(task.id===taskId){
+          return {...task,completed:!task.completed};
+        }
+        return task;
+      });
+      setTasks(updatedTask);
+    }catch(error){
+      console.error("Error toggling task:",error);
+    }
+  };
 
   return (
     <main className="flex-row justify-center items-center text-center m-10 ">
-      <Header/>
+      <Header />
       <form onSubmit={addTask}>
-          <input className="text-black p-2 rounded-md m-2" type="text" value={task} onChange={(e)=>setTask(e.target.value)} />
-          <input className="bg-emerald-300 text-black p-2 rounded-md" type="submit" value="Add task" />
-        </form>
+        <input
+          className="text-black p-2 rounded-md m-2"
+          type="text"
+          value={task}
+          onChange={(e) => setTask(e.target.value)}
+        />
+        <input
+          className="bg-emerald-300 text-black p-2 rounded-md"
+          type="submit"
+          value="Add task"
+        />
+      </form>
       <div className="text-2xl flex justify-center m-10">
         <div>
-        {tasks.map((task,index)=>{
-          return(
-            <div key={index} className=" w-96 bg-teal-500 flex justify-around p-3 rounded-md m-2">
-              <input type="checkbox" value={task.content} onChange={()=>{
-                toggleComp(task.id);
-                console.log(task);
-                }} />
-              <span className={task.completed?'line-through text-black':'font-normal text-stone-200'}>{task.content}</span>
-              <button className="text-sm bg-blue-400 hover:bg-red-500 border-2 rounded-md p-1" onClick={()=>removeTask(task.id)}>delete</button>
+          {tasks.map((task) => (
+            <div key={task.id} className="w-96 bg-teal-500 flex justify-around p-3 rounded-md m-2">
+              <input
+                type="checkbox"
+                value={task.content}
+                onChange={() => toggleComp(task.id)}
+              />
+              <span className={task.completed ? "line-through text-black" : "font-normal text-stone-200"}>
+                {task.content}
+              </span>
+              <button
+                className="text-sm bg-blue-400 hover-bg-red-500 border-2 rounded-md p-1"
+                onClick={() => removeTask(task.id)}
+              >
+                Delete
+              </button>
             </div>
-          )
-        })}
-          </div>
+          ))}
+        </div>
       </div>
-        
     </main>
-  )
+  );
 }
