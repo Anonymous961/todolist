@@ -1,8 +1,14 @@
 "use client"
-import React, { useState } from "react";
+import React, { useState , useEffect} from "react";
+import {ethers} from 'ethers';
+import { provider, wallet, todoListContract } from "../../ethers";
+import { todoListAbi } from "./abi";
 import Header from "./Components/header";
 
 export default function Home() {
+  const contractAddress = '0x0A49Be76eA39Db32d9024115537E0cc5C1F31BB8'; // Replace with your contract address
+  const todoListContract = new ethers.Contract(contractAddress, todoListAbi.abi, wallet);
+
   const [tasks,setTasks]=useState([
     {id:0,content:"task1",completed:false},
     {id:1,content:"task2",completed:false},
